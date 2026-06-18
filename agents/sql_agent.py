@@ -2,6 +2,7 @@ import pandas as pd
 
 from database.postgres import engine
 from utils.llm import generate
+from sqlalchemy import text
 
 
 def ask_database(question):
@@ -62,6 +63,19 @@ Question:
     if any(word in sql.lower() for word in dangerous_words):
         raise Exception("Unsafe SQL detected")
 
-    df = pd.read_sql(sql, engine)
+    try:
 
-    return sql, df
+        with engine.connect() as conn:
+
+            df = pd.read_sql(
+                text(sql),
+                conn
+            )
+
+        return sql, df
+
+    except Exception as e:
+
+        raise Exception(
+            f"SQL Error: {str(e)}"
+        )

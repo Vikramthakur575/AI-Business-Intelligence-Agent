@@ -191,9 +191,7 @@ if question:
         }
     )
 
-    st.session_state.query_history.append(
-        question
-    )
+    st.session_state.query_history.append(question)
 
     with st.chat_message("user"):
         st.markdown(question)
@@ -208,9 +206,7 @@ if question:
 
                 if data_source == "Built-in Financial Dataset":
 
-                    sql, df = ask_database(
-                        question
-                    )
+                    sql, df = ask_database(question)
 
                 else:
 
@@ -222,17 +218,25 @@ if question:
 
                         st.stop()
 
-                    load_uploaded_data(
-                        uploaded_file
-                    )
+                    load_uploaded_data(uploaded_file)
 
                     sql, df = ask_uploaded_database(
                         question
                     )
 
+            if df is None or df.empty:
+
+                st.warning(
+                    "No data returned."
+                )
+
+                st.stop()
+
             st.success(
                 "Analysis completed successfully."
             )
+
+            # KPI Dashboard
 
             numeric_cols = df.select_dtypes(
                 include="number"
@@ -241,7 +245,10 @@ if question:
             c1, c2, c3, c4 = st.columns(4)
 
             with c1:
-                st.metric("Rows", len(df))
+                st.metric(
+                    "Rows",
+                    len(df)
+                )
 
             with c2:
                 st.metric(
@@ -265,6 +272,8 @@ if question:
                         f"{df[metric_col].mean():,.0f}"
                     )
 
+            # SQL
+
             st.subheader(
                 "📝 Generated SQL"
             )
@@ -273,6 +282,8 @@ if question:
                 sql,
                 language="sql"
             )
+
+            # Results
 
             st.subheader(
                 "📋 Query Results"
@@ -283,6 +294,8 @@ if question:
                 use_container_width=True
             )
 
+            # Executive Summary
+
             st.subheader(
                 "📌 Executive Summary"
             )
@@ -290,6 +303,8 @@ if question:
             st.info(
                 generate_summary(df)
             )
+
+            # Visualization
 
             chart = generate_chart(df)
 
@@ -304,6 +319,8 @@ if question:
                     use_container_width=True
                 )
 
+            # Business Insights
+
             insights = generate_insights(
                 question,
                 df
@@ -316,6 +333,8 @@ if question:
             st.markdown(
                 insights
             )
+
+            # Downloads
 
             st.subheader(
                 "⬇ Export Results"
@@ -372,6 +391,8 @@ if question:
             st.error(
                 f"❌ Error: {str(e)}"
             )
+
+            st.stop()
             # =====================================
             # KPI Dashboard
             # =====================================
