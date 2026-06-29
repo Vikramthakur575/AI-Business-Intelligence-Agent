@@ -469,22 +469,44 @@ if question:
                 generate_summary(df)
             )
 
-            # =====================================
-            # Visualization
+                        # =====================================
+            # Interactive Visualization
             # =====================================
 
-            chart = generate_chart(df)
+            st.subheader("📊 Interactive Visualization")
+
+            chart_type = st.selectbox(
+                "Choose Chart Type",
+                [
+                    "Auto",
+                    "Bar",
+                    "Line",
+                    "Scatter",
+                    "Pie",
+                    "Histogram",
+                    "Box"
+                ]
+            )
+
+            chart = generate_chart(
+                df,
+                chart_type
+            )
 
             if chart:
-
-                st.subheader(
-                    "📊 Visualization"
-                )
 
                 st.plotly_chart(
                     chart,
                     use_container_width=True
                 )
+
+            else:
+
+                st.info(
+                    "No suitable visualization available for this data."
+                )
+
+            
 
             # =====================================
             # Business Insights

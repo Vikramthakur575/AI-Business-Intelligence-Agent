@@ -1,49 +1,22 @@
 import pandas as pd
 
-from database.postgres import engine
-from utils.llm import generate
 from sqlalchemy import text
 
+from database.postgres import engine
+from utils.llm import generate
+from utils.schema import (
+    get_schema,
+    get_sample_data
+)
+from utils.sql_examples import SQL_EXAMPLES
+from utils.sql_validator import validate_sql
 
-def ask_database(question):
 
-    schema = """
-    Table: financials
+def clean_sql(sql: str):
 
-    Columns:
-    symbol
-    fiscaldateending
-    totalrevenue
-    grossprofit
-    operatingincome
-    incomebeforetax
-    ebit
-    ebitda
-    netincome
     """
-
-    prompt = f"""
-You are a PostgreSQL expert.
-
-Convert the user's question into SQL.
-
-Rules:
-- Use table financials
-- Return ONLY SQL
-- No explanations
-- Use lowercase column names
-- LIMIT results to 50 rows unless specified
-- Never generate INSERT, UPDATE, DELETE, DROP, ALTER
-
-Schema:
-
-{schema}
-
-Question:
-{question}
-"""
-
-    sql = generate(prompt)
+    Removes markdown formatting if Gemini returns it.
+    """
 
     sql = (
         sql.replace("```sql", "")
@@ -51,31 +24,150 @@ Question:
         .strip()
     )
 
-    dangerous_words = [
-        "drop",
-        "delete",
-        "update",
-        "alter",
-        "truncate",
-        "insert"
-    ]
+    return sql
 
-    if any(word in sql.lower() for word in dangerous_words):
-        raise Exception("Unsafe SQL detected")
 
-    try:
+def build_prompt(question):
 
-        with engine.connect() as conn:
+    schema = get_schema()
 
-            df = pd.read_sql(
-                text(sql),
-                conn
-            )
+    sample_data = get_sample_data()
 
-        return sql, df
+    prompt = f"""
+You are an expert PostgreSQL Data Analyst.
 
-    except Exception as e:
+Your job is to convert natural language questions into PostgreSQL SQL queries.
 
-        raise Exception(
-            f"SQL Error: {str(e)}"
+======================================================
+DATABASE INFORMATION
+======================================================
+
+Table Name:
+
+financials
+
+======================================================
+SCHEMA
+======================================================
+
+{schema}
+
+======================================================
+SAMPLE DATA
+======================================================
+
+{sample_data}
+
+======================================================
+EXAMPLES
+======================================================
+
+{SQL_EXAMPLES}
+
+======================================================
+IMPORTANT RULES
+======================================================
+
+1. Return ONLY SQL.
+
+2. Never explain anything.
+
+3. Never use markdown.
+
+4. Never use ```sql.
+
+5. Never generate:
+
+DROP
+DELETE
+INSERT
+UPDATE
+ALTER
+TRUNCATE
+GRANT
+REVOKE
+
+6. Use ONLY table financials.
+
+7. Use lowercase column names.
+
+8. LIMIT 50 rows unless user specifies another limit.
+
+9. If user asks Top Companies,
+sort in descending order.
+
+10. If user asks Revenue Trend,
+sort by fiscaldateending.
+
+11. Always generate valid PostgreSQL SQL.
+
+======================================================
+USER QUESTION
+======================================================
+
+{question}
+
+======================================================
+SQL
+======================================================
+"""
+
+    return prompt
+
+
+def execute_sql(sql):
+
+    validate_sql(sql)
+
+    with engine.connect() as conn:
+
+        df = pd.read_sql(
+            text(sql),
+            conn
         )
+
+    return df
+
+
+def ask_database(question):
+
+    prompt = build_prompt(question)
+
+    last_error = ""
+
+    for attempt in range(2):
+
+        sql = generate(prompt)
+
+        sql = clean_sql(sql)
+
+        try:
+
+            df = execute_sql(sql)
+
+            return sql, df
+
+        except Exception as e:
+
+            last_error = str(e)
+
+            prompt += f"""
+
+The previous SQL produced this PostgreSQL error:
+
+{last_error}
+
+Please fix the SQL.
+
+Return ONLY corrected SQL.
+"""
+
+    raise Exception(
+        f"""
+Unable to generate valid SQL.
+
+Last database error:
+
+{last_error}
+"""
+    )
