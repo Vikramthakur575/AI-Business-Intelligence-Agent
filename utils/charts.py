@@ -1,6 +1,6 @@
 import pandas as pd
 import plotly.express as px
-
+from utils.query_type import detect_query
 
 # ==========================================
 # Detect column types
@@ -33,30 +33,61 @@ def detect_columns(df):
 # Auto Chart Recommendation
 # ==========================================
 
-def recommend_chart(df):
+def recommend_chart(df,question=""):
 
-    numeric, categorical, dates = detect_columns(df)
+     query_type = detect_query(question)
 
-    if len(dates) >= 1 and len(numeric) >= 1:
+     numeric, categorical, dates = detect_columns(df)
+
+    # AI Intent based recommendation
+
+     if query_type == "trend":
+
+        if len(dates) >= 1 and len(numeric) >= 1:
+            return "Line"
+
+     if query_type == "comparison":
+
+        if len(categorical) >= 1 and len(numeric) >= 1:
+            return "Bar"
+
+     if query_type == "distribution":
+
+        if len(numeric) >= 1:
+            return "Histogram"
+
+     if query_type == "correlation":
+
+        if len(numeric) >= 2:
+            return "Scatter"
+
+     if query_type == "ranking":
+
+        if len(categorical) >= 1 and len(numeric) >= 1:
+            return "Bar"
+
+    # Fallback (old logic)
+
+     if len(dates) >= 1 and len(numeric) >= 1:
         return "Line"
 
-    if len(categorical) >= 1 and len(numeric) >= 1:
+     if len(categorical) >= 1 and len(numeric) >= 1:
         return "Bar"
 
-    if len(numeric) >= 2:
+     if len(numeric) >= 2:
         return "Scatter"
 
-    if len(numeric) == 1:
+     if len(numeric) == 1:
         return "Histogram"
 
-    return None
+     return None
 
 
 # ==========================================
 # Generate Chart
 # ==========================================
 
-def generate_chart(df, chart_type="Auto"):
+def generate_chart(df,question="", chart_type="Auto"):
 
     if df.empty:
         return None
@@ -64,7 +95,7 @@ def generate_chart(df, chart_type="Auto"):
     numeric, categorical, dates = detect_columns(df)
 
     if chart_type == "Auto":
-        chart_type = recommend_chart(df)
+        chart_type = recommend_chart(df,question)
 
     if chart_type is None:
         return None
